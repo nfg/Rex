@@ -5,7 +5,7 @@ perl:
   - "5.30"
 jobs:
   include:
-    - stage: test
+    - stage: build
       env:
         - AUTHOR_TESTING=1 RELEASE_TESTING=1 PERL_CPANM_OPT="--quiet --notest"
       cache:
@@ -36,36 +36,51 @@ jobs:
         - HARNESS_PERL_SWITCHES=-MDevel::Cover=+ignore,^t/ prove --timer --lib --recurse --jobs $(nproc) --shuffle t/
       after_success:
         - cover -report coveralls
+      workspaces:
+        create:
+          name: build
+          paths: .
+    - stage: test
+      git:
+        clone: false
+      env:
+        - PERL_CPANM_OPT="--quiet --notest"
+      cache:
+        directories:
+          - ${PERLBREW_ROOT}/perls/${PERLBREW_PERL}/lib
+          - ${PERLBREW_ROOT}/perls/${PERLBREW_PERL}/bin
+      addons:
+        apt:
+          packages:
+            - libmagic-dev
+      workspaces:
+        use: build
+      before_install:
+        - cd RexOps/Rex/build
+        - cpanm --installdeps .
+      script:
+        - prove --timer --lib --recurse --jobs $(nproc) --shuffle t/
     - stage: test
       os: windows
       language: shell
+      git:
+        clone: false
       env:
         - PERL_CPANM_OPT="--quiet --notest"
       cache:
         directories:
           - /c/Strawberry
+      workspaces:
+        use: build
       before_install:
         - cinst -y strawberryperl
         - export "PATH=/c/Strawberry/perl/site/bin:/c/Strawberry/perl/bin:/c/Strawberry/c/bin:$PATH"
         - export "PERL5LIB=/c/Strawberry/perl/site/lib:/c/Strawberry/perl/site/lib:/c/Strawberry/perl/vendor/lib:/c/Strawberry/perl/lib"
         - ln -snf /c/Strawberry/perl/bin/perl /bin/perl
-        - cpanm --reinstall Module::Pluggable::Object
-        - cpanm Dist::Zilla
-        - mkdir ~/.dzil
-        - export AUTHOR_EMAIL="$(git log -1 ${TRAVIS_COMMIT} --pretty='%aE')"
-        - export AUTHOR_NAME="$(git log -1 ${TRAVIS_COMMIT} --pretty='%aN')"
-        - echo -e "[%User]\nname = ${AUTHOR_EMAIL}\nemail = ${AUTHOR_EMAIL}\n" > ~/.dzil/config.ini
-        - dzil authordeps | cpanm
-        - dzil listdeps | cpanm
-        # installing OS-specific dependencies
-        - cpanm Net::SSH2
-        # installing optional dependencies
-        - cpanm DBI XML::LibXML
+        - cd /home/travis/build/RexOps/Rex/build
+        - cpanm --installdeps .
         - cpanm --reinstall App::Prove
-      install:
-        - dzil build --in build --notgz
       script:
-        - cd build
         - prove --timer --lib --recurse --jobs $(nproc) --shuffle t/
     - stage: test
       os: osx
