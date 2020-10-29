@@ -4,6 +4,7 @@ Revision history for Rex
  [API CHANGES]
 
  [BUG FIXES]
+ - Fix excessive caching when querying a CMDB item
 
  [DOCUMENTATION]
 
